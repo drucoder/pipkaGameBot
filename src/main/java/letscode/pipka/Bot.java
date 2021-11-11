@@ -15,15 +15,22 @@ import com.pengrad.telegrambot.request.EditMessageText;
 import com.pengrad.telegrambot.request.SendMessage;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Bot {
     private final TelegramBot bot = new TelegramBot(System.getenv("BOT_TOKEN"));
-    private final String PROCESSING_LABEL = "Processing...";
+    private final String PROCESSING_LABEL = "...";
     private final static List<String> opponentWins = new ArrayList<String>() {{
         add("01");
         add("12");
         add("20");
+    }};
+    private final static Map<String, String> items = new HashMap<String, String>() {{
+        put("0", "\uD83D\uDD95");
+        put("1", "✌");
+        put("2", "\uD83E\uDD0F");
     }};
 
     public void serve() {
@@ -68,52 +75,61 @@ public class Bot {
                     .replyMarkup(
                             new InlineKeyboardMarkup(
                                     new InlineKeyboardButton("\uD83D\uDD95")
-                                            .callbackData(String.format("%d %s %s %s", chatId, senderName, senderChose, "0")),
+                                            .callbackData(String.format("%d %s %s %s %d", chatId, senderName, senderChose, "0", messageId)),
                                     new InlineKeyboardButton("✌")
-                                            .callbackData(String.format("%d %s %s %s", chatId, senderName, senderChose, "1")),
+                                            .callbackData(String.format("%d %s %s %s %d", chatId, senderName, senderChose, "1", messageId)),
                                     new InlineKeyboardButton("\uD83E\uDD0F")
-                                            .callbackData(String.format("%d %s %s %s", chatId, senderName, senderChose, "2"))
+                                            .callbackData(String.format("%d %s %s %s %d", chatId, senderName, senderChose, "2", messageId))
                             )
                     );
         } else if (inlineQuery != null) {
-            InlineQueryResultArticle pipka = buildInlineButton("pipka", "\uD83D\uDD95 Pipka", "0");
-            InlineQueryResultArticle scissors = buildInlineButton("scissors", "✌ Scissors", "1");
-            InlineQueryResultArticle ruler = buildInlineButton("ruler", "\uD83E\uDD0F Ruler", "2");
+            InlineQueryResultArticle pipka = buildInlineButton("pipka", "\uD83D\uDD95 Пипка", "0");
+            InlineQueryResultArticle scissors = buildInlineButton("scissors", "✌ Ножницы", "1");
+            InlineQueryResultArticle ruler = buildInlineButton("ruler", "\uD83E\uDD0F Линейка", "2");
 
             request = new AnswerInlineQuery(inlineQuery.id(), pipka, scissors, ruler).cacheTime(1);
         } else if (callbackQuery != null) {
             String[] data = callbackQuery.data().split(" ");
+            if (data.length < 4) {
+                return;
+            }
             Long chatId = Long.parseLong(data[0]);
             String senderName = data[1];
             String senderChose = data[2];
             String opponentChose = data[3];
-            String opponentName = callbackQuery.from().firstName() + "!";
+            int messageId = Integer.parseInt(data[4]);
+            String opponentName = callbackQuery.from().firstName();
 
             if (senderChose.equals(opponentChose)) {
-                request = new SendMessage(chatId, "Nobody wins =(");
-            } else if (opponentWins.contains(senderChose + opponentChose)) {
-                request = new SendMessage(
-                        chatId,
+                request = new EditMessageText(
+                        chatId, messageId,
                         String.format(
-                                "%s (%s) was beaten by %s (%s)",
-                                senderName, senderChose,
-                                opponentName, opponentChose
+                                "%s и %s выбрали %s. Пипки примерно равны",
+                                senderName,
+                                opponentName,
+                                items.get(senderChose)
+                        )
+                );
+            } else if (opponentWins.contains(senderChose + opponentChose)) {
+                request = new EditMessageText(
+                        chatId, messageId,
+                        String.format(
+                                "%s выбрал %s и отхватил от %s, выбравшего %s",
+                                senderName, items.get(senderChose),
+                                opponentName, items.get(opponentChose)
                         )
                 );
             } else {
-                request = new SendMessage(
-                        chatId,
+                request = new EditMessageText(
+                        chatId, messageId,
                         String.format(
-                                "%s (%s) was beaten by %s (%s)",
-                                opponentName, opponentChose,
-                                senderName, senderChose
+                                "%s выбрал %s и отхватил от %s, выбравшего %s",
+                                opponentName, items.get(opponentChose),
+                                senderName, items.get(senderChose)
                         )
                 );
             }
-        } /*else if (message != null) {
-            long chatId = message.chat().id();
-            request = new SendMessage(chatId, "Hello!");
-        }*/
+        }
 
         if (request != null) {
             bot.execute(request);
@@ -121,7 +137,7 @@ public class Bot {
     }
 
     private InlineQueryResultArticle buildInlineButton(String id, String title, String callbackData) {
-        return new InlineQueryResultArticle(id, title, "I'm ready to fight!")
+        return new InlineQueryResultArticle(id, title, "Готов меряться пипкой!")
                 .replyMarkup(
                         new InlineKeyboardMarkup(
                                 new InlineKeyboardButton(PROCESSING_LABEL).callbackData(callbackData)
